@@ -207,7 +207,7 @@ int main(int argc, char **argv) {
   CaptureTestStderr();
 
   // re-emit early_stderr
-  LogMessage("dummy", LogMessage::kNoLogPrefix, GLOG_INFO).stream() << early_stderr;
+  LogMessage("dummy", LogMessage::kNoLogPrefix, __FUNCTION__, GLOG_INFO).stream() << early_stderr;
 
   TestLogging(true);
   TestRawLogging();
@@ -273,13 +273,13 @@ void TestLogging(bool check_counts) {
              << setw(1) << hex << j;
 
   {
-    google::LogMessage outer(__FILE__, __LINE__, GLOG_ERROR);
+    google::LogMessage outer(__FILE__, __LINE__, __FUNCTION__, GLOG_ERROR);
     outer.stream() << "outer";
 
     LOG(ERROR) << "inner";
   }
 
-  LogMessage("foo", LogMessage::kNoLogPrefix, GLOG_INFO).stream() << "no prefix";
+  LogMessage("foo", LogMessage::kNoLogPrefix, __FUNCTION__, GLOG_INFO).stream() << "no prefix";
 
   if (check_counts) {
     CHECK_EQ(base_num_infos   + 14, LogMessage::num_messages(GLOG_INFO));
@@ -485,11 +485,11 @@ class TestLogSinkImpl : public LogSink {
  public:
   vector<string> errors;
   virtual void send(LogSeverity severity, const char* /* full_filename */,
-                    const char* base_filename, int line,
+                    const char* base_filename, int line, const char* func,
                     const struct tm* tm_time,
                     const char* message, size_t message_len) {
     errors.push_back(
-      ToString(severity, base_filename, line, tm_time, message, message_len));
+      ToString(severity, base_filename, line, func, tm_time, message, message_len));
   }
 };
 
@@ -521,7 +521,7 @@ void TestLogSink() {
 
   LOG(INFO) << "Captured by LOG_TO_SINK:";
   for (size_t i = 0; i < sink.errors.size(); ++i) {
-    LogMessage("foo", LogMessage::kNoLogPrefix, GLOG_INFO).stream()
+    LogMessage("foo", LogMessage::kNoLogPrefix, __FUNCTION__, GLOG_INFO).stream()
       << sink.errors[i];
   }
 }
@@ -1008,14 +1008,14 @@ class TestWaitingLogSink : public LogSink {
   // (re)define LogSink interface
 
   virtual void send(LogSeverity severity, const char* /* full_filename */,
-                    const char* base_filename, int line,
+                    const char* base_filename, int line, const char* func,
                     const struct tm* tm_time,
                     const char* message, size_t message_len) {
     // Push it to Writer thread if we are the original logging thread.
     // Note: Something like ThreadLocalLogSink is a better choice
     //       to do thread-specific LogSink logic for real.
     if (pthread_equal(tid_, pthread_self())) {
-      writer_.Buffer(ToString(severity, base_filename, line,
+      writer_.Buffer(ToString(severity, base_filename, line, func,
                               tm_time, message, message_len));
     }
   }
